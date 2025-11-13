@@ -1,3 +1,5 @@
+impdp system/password DIRECTORY=DATA_PUMP_DIR DUMPFILE=export.dmp SQLFILE=export_contents.sql
+
 
 oracle session 
 
