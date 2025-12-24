@@ -1,3 +1,53 @@
+
+
+SELECT
+  s.sid,
+  s.serial#,
+  s.username,
+  s.status,
+  s.osuser,
+  s.machine,
+  s.program,
+  s.logon_time,
+  ROUND((SYSDATE - s.logon_time) * 24 * 60, 1) AS minutes_connectees
+FROM v$session s
+WHERE s.status = 'ACTIVE'
+ORDER BY s.logon_time;
+
+
+SELECT
+  s.sid,
+  s.serial#,
+  s.username,
+  s.status,
+  s.sql_id,
+  s.last_call_et AS secondes_depuis_derniere_action
+FROM v$session s
+WHERE s.status = 'ACTIVE';
+
+
+
+
+SELECT
+  s.sid,
+  s.serial#,
+  q.sql_text
+FROM v$session s
+JOIN v$sql q ON s.sql_id = q.sql_id
+WHERE s.status = 'ACTIVE';
+
+
+SELECT
+  s.sid,
+  s.serial#,
+  s.username,
+  s.event,
+  s.wait_class,
+  s.seconds_in_wait
+FROM v$session s
+WHERE s.status = 'ACTIVE'
+  AND s.wait_class <> 'Idle';
+
 impdp system/password DIRECTORY=DATA_PUMP_DIR DUMPFILE=export.dmp SQLFILE=export_contents.sql
 
 
