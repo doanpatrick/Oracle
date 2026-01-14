@@ -1,0 +1,121 @@
+Procédure complète pour créer un wallet Oracle pour l'utilisateur ULDWBIZ
+Voici la procédure détaillée pour créer le wallet avec le certificat SMTP et le rendre accessible à l'utilisateur ULDWBIZ sur le serveur XORWBI19.
+1. Créer le répertoire du wallet accessible à ULDWBIZ
+# Se connecter en tant qu'utilisateur oracle sur XORWBI19
+# Créer le répertoire du wallet
+mkdir -p /u01/app/oracle/admin/XORWBI19/wallet
+
+# Définir les permissions pour que ULDWBIZ puisse le lire
+chmod 755 /u01/app/oracle/admin/XORWBI19/wallet
+2. Créer le wallet avec orapki
+# Créer le wallet avec auto-login
+orapki wallet create -wallet /u01/app/oracle/admin/XORWBI19/wallet -pwd WalletPassword123 -auto_login
+
+# Le mot de passe "WalletPassword123" est un exemple - choisissez un mot de passe sécurisé
+3. Ajouter le certificat SMTP au wallet
+# Ajouter le certificat du serveur smtps.oddo.fr au wallet
+orapki wallet add -wallet /u01/app/oracle/admin/XORWBI19/wallet -trusted_cert -cert /chemin/vers/certificat_smtp.pem -pwd WalletPassword123
+
+# Si vous avez une chaîne de certificats (certificat intermédiaire + root CA)
+# Ajoutez-les dans l'ordre : Root CA d'abord, puis intermédiaire
+orapki wallet add -wallet /u01/app/oracle/admin/XORWBI19/wallet -trusted_cert -cert /chemin/vers/root_ca.pem -pwd WalletPassword123
+orapki wallet add -wallet /u01/app/oracle/admin/XORWBI19/wallet -trusted_cert -cert /chemin/vers/intermediate_ca.pem -pwd WalletPassword123
+4. Vérifier le contenu du wallet
+# Afficher les certificats dans le wallet
+orapki wallet display -wallet /u01/app/oracle/admin/XORWBI19/wallet -pwd WalletPassword123
+5. Définir les permissions correctes
+# Permissions sur les fichiers du wallet
+chown oracle:dba /u01/app/oracle/admin/XORWBI19/wallet/*
+chmod 644 /u01/app/oracle/admin/XORWBI19/wallet/cwallet.sso
+chmod 600 /u01/app/oracle/admin/XORWBI19/wallet/ewallet.p12
+6. Créer un Oracle Directory pointant vers le wallet
+-- Se connecter en tant que SYSDBA
+CONNECT / AS SYSDBA
+
+-- Créer un directory Oracle pointant vers le wallet
+CREATE OR REPLACE DIRECTORY WALLET_DIR AS '/u01/app/oracle/admin/XORWBI19/wallet';
+
+-- Donner les droits de lecture à ULDWBIZ
+GRANT READ ON DIRECTORY WALLET_DIR TO ULDWBIZ;
+7. Configuration pour UTL_SMTP avec le wallet
+Voici le code PL/SQL complet pour ULDWBIZ :
+-- Se connecter en tant qu'ULDWBIZ
+CONNECT ULDWBIZ/mot_de_passe@XORWBI19
+
+DECLARE
+  l_mail_conn   UTL_SMTP.connection;
+BEGIN
+  -- Ouvrir la connexion SMTP avec STARTTLS
+  l_mail_conn := UTL_SMTP.OPEN_CONNECTION(
+    host                          => 'smtps.oddo.fr',
+    port                          => 587,
+    wallet_path                   => 'file:/u01/app/oracle/admin/XORWBI19/wallet',
+    wallet_password               => 'WalletPassword123',
+    secure_connection_before_smtp => FALSE  -- FALSE pour STARTTLS sur port 587
+  );
+  
+  -- Envoyer STARTTLS
+  UTL_SMTP.STARTTLS(l_mail_conn);
+  
+  -- Suite de votre code d'envoi d'email...
+  UTL_SMTP.HELO(l_mail_conn, 'xorwbi19.votredomaine.fr');
+  
+  -- ... reste du code ...
+  
+  UTL_SMTP.QUIT(l_mail_conn);
+EXCEPTION
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE('Erreur: ' || SQLERRM);
+    RAISE;
+END;
+/
+8. Alternative : Utiliser cwallet.sso sans mot de passe
+Si vous utilisez le fichier cwallet.sso (auto-login), vous n'avez pas besoin de spécifier le mot de passe :
+DECLARE
+  l_mail_conn   UTL_SMTP.connection;
+BEGIN
+  l_mail_conn := UTL_SMTP.OPEN_CONNECTION(
+    host                          => 'smtps.oddo.fr',
+    port                          => 587,
+    wallet_path                   => 'file:/u01/app/oracle/admin/XORWBI19/wallet',
+    wallet_password               => NULL,  -- NULL pour auto-login wallet
+    secure_connection_before_smtp => FALSE
+  );
+  
+  UTL_SMTP.STARTTLS(l_mail_conn);
+  -- ... reste du code
+END;
+/
+9. Privilèges nécessaires pour ULDWBIZ
+-- En tant que SYSDBA
+GRANT CREATE SESSION TO ULDWBIZ;
+GRANT EXECUTE ON UTL_SMTP TO ULDWBIZ;
+GRANT EXECUTE ON UTL_TCP TO ULDWBIZ;
+
+-- Créer une ACL pour autoriser la connexion réseau
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.CREATE_ACL(
+    acl          => 'smtp_oddo.xml',
+    description  => 'ACL pour SMTP oddo.fr',
+    principal    => 'ULDWBIZ',
+    is_grant     => TRUE,
+    privilege    => 'connect'
+  );
+  
+  DBMS_NETWORK_ACL_ADMIN.ASSIGN_ACL(
+    acl  => 'smtp_oddo.xml',
+    host => 'smtps.oddo.fr',
+    lower_port => 587,
+    upper_port => 587
+  );
+END;
+/
+
+COMMIT;
+Résumé des chemins et mots de passe
+Chemin du wallet : /u01/app/oracle/admin/XORWBI19/wallet
+Wallet path dans le code : file:/u01/app/oracle/admin/XORWBI19/wallet
+Mot de passe du wallet : À définir lors de la création (exemple : WalletPassword123)
+Port SMTP : 587 avec STARTTLS
+secure_connection_before_smtp : FALSE (car port 587 utilise STARTTLS, pas SSL direct)
+Avez-vous déjà le fichier certificat pour smtps.oddo.fr, ou avez-vous besoin d'aide pour l'extraire du serveur SMTP ?
