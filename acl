@@ -1,0 +1,260 @@
+Tu reçois cette erreur ORA-24247 : Network Access Control List (ACL) denied parce que ton schéma Oracle n’a pas les droits d’utiliser UTL_TCP / UTL_SMTP vers ton serveur SMTP.
+👉 Ce n’est pas un problème de code, c’est un problème de droits réseau dans Oracle.
+🔎 Décryptage du message
+Copier le code
+
+ORA-24247: Netzwerkzugriff von Access Control-Liste (ACL) abgelehnt
+ORA-06512: in "SYS.UTL_TCP"
+ORA-06512: in "SYS.UTL_SMTP"
+➡️ Oracle bloque ton appel réseau car il n’y a aucun ACL permettant à ton utilisateur
+(ex : PEBFRISK, SCOTT, APPUSER, etc.)
+de faire du SMTP vers ton host.
+✅ SOLUTION : créer l’ACL correctement
+Il faut absolument exécuter ceci en SYS.
+1️⃣ Supprimer les ACL anciennes (si elles existent, souvent mal configurées)
+Copier le code
+Sql
+BEGIN
+  FOR r IN (SELECT acl FROM dba_network_acls) LOOP
+    DBMS_NETWORK_ACL_ADMIN.DROP_ACL(r.acl);
+  END LOOP;
+END;
+/
+👉 Optionnel si tu veux tout remettre propre.
+2️⃣ Créer une ACL valable pour le SMTP
+⚠️ Remplacer :
+smtp.example.com → ton serveur SMTP
+PEBFRISK → ton schéma qui envoie l’email
+Copier le code
+Sql
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.CREATE_ACL(
+    acl         => 'smtp_acl.xml',
+    description => 'ACL pour SMTP',
+    principal   => 'PEBFRISK',
+    is_grant    => TRUE,
+    privilege   => 'connect'
+  );
+END;
+/
+3️⃣ Ajouter l’autorisation resolve (indispensable si DNS utilisé)
+Copier le code
+Sql
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.ADD_PRIVILEGE(
+    acl       => 'smtp_acl.xml',
+    principal => 'PEBFRISK',
+    is_grant  => TRUE,
+    privilege => 'resolve'
+  );
+END;
+/
+4️⃣ Associer l’ACL au serveur SMTP sur son port
+Copier le code
+Sql
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.ASSIGN_ACL(
+    acl  => 'smtp_acl.xml',
+    host => 'smtp.example.com',
+    lower_port => 587,
+    upper_port => 587
+  );
+END;
+/
+5️⃣ Vérifier
+Copier le code
+Sql
+SELECT * FROM dba_network_acls;
+SELECT * FROM dba_network_acl_privileges;
+🟢 Ensuite, ton test UTL_SMTP fonctionnera.
+⚠️ Attention spéciale port 587
+Selon ton serveur SMTP (Gmail, Office365, OVH) :
+➡️ le port 587 nécessite STARTTLS, que Oracle ne supporte pas.
+Si tu vois ensuite :
+Copier le code
+
+ORA-29278: 530 Must issue STARTTLS
+Alors il faudra un SMTP relay interne (Postfix/Exchange).
+📌 Pour finaliser
+Dis-moi juste :
+1. Quel est ton serveur SMTP ?
+(Office365, Gmail, Exchange interne, OVH, autre…)
+2. Quel est le schéma Oracle qui exécute PEBFRISK_EMAIL_SEND_TEST ?
+Je te génère la commande ACL exacte et 100% compatible avec ton contexte.
+
+
+
+
+
+
+
+
+
+
+
+
+Voici toutes les commandes Oracle complètes pour :
+✅ Lister les ACL existantes
+✅ Voir les privilèges
+✅ Créer une ACL
+✅ Modifier une ACL
+✅ Supprimer une ACL
+✅ Assigner un host / port à une ACL
+➡️ Tout ce qu’il faut pour UTL_SMTP, UTL_HTTP, UTL_TCP, etc.
+⚠️ Toutes ces commandes doivent être exécutées en SYS.
+🟦 1. Vérifier les ACL existantes
+✔️ Lister les ACL
+Copier le code
+Sql
+SELECT acl, host, lower_port, upper_port
+FROM dba_network_acls
+ORDER BY host;
+✔️ Lister les privilèges
+Copier le code
+Sql
+SELECT acl,
+       principal,
+       privilege,
+       is_grant
+FROM dba_network_acl_privileges
+ORDER BY acl, principal;
+✔️ Voir si un host a une ACL associée
+Copier le code
+Sql
+SELECT *
+FROM dba_network_acls
+WHERE host = 'smtp.example.com';
+🟩 2. Créer une ACL
+Ex. pour autoriser l’utilisateur APPUSER à accéder au serveur SMTP :
+Copier le code
+Sql
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.CREATE_ACL(
+    acl         => 'smtp_acl.xml',
+    description => 'ACL SMTP',
+    principal   => 'APPUSER',
+    is_grant    => TRUE,
+    privilege   => 'connect'
+  );
+END;
+/
+Optionnel mais très important (DNS, résolutions IP) :
+Copier le code
+Sql
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.ADD_PRIVILEGE(
+    acl       => 'smtp_acl.xml',
+    principal => 'APPUSER',
+    is_grant  => TRUE,
+    privilege => 'resolve'
+  );
+END;
+/
+Puis associer à un serveur et un port :
+Copier le code
+Sql
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.ASSIGN_ACL(
+    acl        => 'smtp_acl.xml',
+    host       => 'smtp.example.com',
+    lower_port => 587,
+    upper_port => 587
+  );
+END;
+/
+🟧 3. Modifier une ACL existante
+✔️ Ajouter un utilisateur
+Copier le code
+Sql
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.ADD_PRIVILEGE(
+    acl       => 'smtp_acl.xml',
+    principal => 'NEWUSER',
+    is_grant  => TRUE,
+    privilege => 'connect'
+  );
+END;
+/
+✔️ Ajouter/retirer une permission
+Copier le code
+Sql
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.ADD_PRIVILEGE(
+    acl       => 'smtp_acl.xml',
+    principal => 'APPUSER',
+    is_grant  => FALSE,
+    privilege => 'connect'
+  );
+END;
+/
+✔️ Changer l'association host/port
+Copier le code
+Sql
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.UNASSIGN_ACL(
+    host       => 'smtp.example.com',
+    lower_port => 587
+  );
+END;
+/
+Copier le code
+Sql
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.ASSIGN_ACL(
+    acl        => 'smtp_acl.xml',
+    host       => 'smtp2.example.com',
+    lower_port => 25,
+    upper_port => 25
+  );
+END;
+/
+🟥 4. Supprimer une ACL
+Il faut d’abord désassigner l’ACL.
+✔️ Désassigner :
+Copier le code
+Sql
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.UNASSIGN_ACL(
+    host => 'smtp.example.com'
+  );
+END;
+/
+✔️ Supprimer l’ACL :
+Copier le code
+Sql
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.DROP_ACL(
+    acl => 'smtp_acl.xml'
+  );
+END;
+/
+🔵 5. Supprimer toutes les ACL (réinitialisation complète)
+Copier le code
+Sql
+BEGIN
+  FOR r IN (SELECT acl FROM dba_network_acls) LOOP
+    DBMS_NETWORK_ACL_ADMIN.DROP_ACL(r.acl);
+  END LOOP;
+END;
+/
+⚠️ À utiliser seulement si tu veux repartir de zéro.
+🔍 6. Vérifier après modification
+Copier le code
+Sql
+SELECT * FROM dba_network_acls;
+SELECT * FROM dba_network_acl_privileges;
+🟣 7. Vérifier que l’ACL est prise en compte (utile pour envoyer des mails)
+Copier le code
+Sql
+SELECT network_acl_admin.check_privilege(
+         username => 'APPUSER',
+         privilege => 'connect',
+         host => 'smtp.example.com',
+         port => 587
+       )
+FROM dual;
+Résultat attendu : GRANTED
+👉 Si tu veux, donne-moi :
+✔️ Le nom de ton schéma Oracle
+✔️ Le serveur SMTP + port
+Et je te génère la commande ACL exacte prête à coller dans SQL*Plus pour envoyer des mails via UTL_SMTP.
