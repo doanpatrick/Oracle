@@ -1,0 +1,103 @@
+Parfait Patrick — voici exactement les étapes pour passer l’envoi mail Oracle 19c sur Linux du port 25 vers le port 587 + STARTTLS, car Oracle UTL_MAIL/UTL_SMTP ne supporte pas STARTTLS nativement.
+On doit donc passer par sendmail, postfix ou un SMTP relay local capable de gérer STARTTLS.
+Et comme tu es un DBA multi-stack 👌, je te propose la méthode propre, sécurisée et standard.
+✅ SOLUTION RECOMMANDÉE (et utilisée en production)
+🎯 Oracle continue d’envoyer en local sur 127.0.0.1 port 25, mais Postfix relaie vers le serveur SMTP externe en 587 + STARTTLS.
+Pourquoi ?
+Oracle 19c ne sait pas faire STARTTLS (obligatoire en 587)
+Postfix sait très bien le faire
+Simple, robuste, supporté par Oracle & Linux
+🧩 Étapes détaillées
+1️⃣ Installer Postfix sur ton Linux (si pas déjà installé)
+Copier le code
+Bash
+sudo yum install postfix -y     # RHEL/CentOS/Oracle Linux
+sudo systemctl enable postfix
+sudo systemctl start postfix
+Vérifie qu’il écoute en local :
+Copier le code
+Bash
+ss -lntp | grep 25
+2️⃣ Configurer Postfix comme SMTP relay avec STARTTLS (port 587)
+Éditer /etc/postfix/main.cf
+Ajoute / modifie les lignes :
+Copier le code
+Ini
+relayhost = [smtp.example.com]:587
+
+smtp_sasl_auth_enable = yes
+smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+smtp_sasl_security_options = noanonymous
+
+smtp_use_tls = yes
+smtp_tls_security_level = encrypt
+smtp_tls_CAfile = /etc/ssl/certs/ca-bundle.crt
+3️⃣ Ajouter ton identifiant SMTP (obligatoire en port 587)
+Créer /etc/postfix/sasl_passwd :
+Copier le code
+
+[smtp.example.com]:587    user@example.com:PasswordSuperSecret
+Protéger le fichier :
+Copier le code
+Bash
+sudo chmod 600 /etc/postfix/sasl_passwd
+sudo postmap /etc/postfix/sasl_passwd
+4️⃣ Redémarrer postfix
+Copier le code
+Bash
+sudo systemctl restart postfix
+sudo systemctl status postfix
+5️⃣ Tester l’envoi via Postfix (avant Oracle)
+Teste avec la commande sendmail :
+Copier le code
+Bash
+echo "Test SMTP 587 via Postfix relay" | mail -s "Test 587" ton.email@test.com
+Vérifie la queue mail :
+Copier le code
+Bash
+mailq
+Check le log Postfix :
+Copier le code
+Bash
+tail -f /var/log/maillog
+Si tu vois :
+Copier le code
+
+status=sent (250 OK)
+➡ C’est bon.
+6️⃣ Configurer Oracle pour envoyer via localhost
+A. Vérifier dans Oracle que UTL_MAIL est installé
+Copier le code
+Sql
+SELECT object_name FROM all_objects WHERE object_name='UTL_MAIL';
+B. Activer dans init.ora ou spfile :
+Copier le code
+Sql
+ALTER SYSTEM SET smtp_out_server='127.0.0.1:25' SCOPE=BOTH;
+7️⃣ Tester l’envoi depuis Oracle
+Copier le code
+Sql
+BEGIN
+  UTL_MAIL.send(
+      sender     => 'user@example.com',
+      recipients => 'ton.email@test.com',
+      subject    => 'Test Oracle via port 587',
+      message    => 'Message fonctionnel depuis Oracle via Postfix STARTTLS');
+END;
+/
+Vérifie Postfix :
+Copier le code
+Bash
+tail -f /var/log/maillog
+🎯 Résultat final
+✔ Oracle continue à utiliser 25 local → pas de problème de STARTTLS
+✔ Postfix relaie en 587 avec chiffrement et authentification
+✔ Compatible O365, Gmail, OVH, SMTP corporate
+✔ 100% production-ready
+📌 Si tu veux, je peux faire :
+Ton config main.cf complet (en fonction de ton SMTP réel)
+Un schéma de ton architecture Oracle SMTP (clean + DBA friendly)
+Un script Bash pour tester ton SMTP 587 automatiquement
+La vérification étape par étape de tes logs Postfix
+Souhaites-tu me donner le serveur SMTP que tu utilises (O365, Gmail, OVH, interne…) ?
+Je t’écris la configuration exacte.
