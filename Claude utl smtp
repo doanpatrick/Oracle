@@ -1,0 +1,66 @@
+Je vais vous expliquer comment envoyer des emails depuis Oracle 19c sur Linux. Il existe plusieurs méthodes :
+1. UTL_MAIL (méthode recommandée)
+UTL_MAIL est le package le plus simple pour envoyer des emails :
+Configuration préalable :
+-- En tant que SYSDBA
+ALTER SYSTEM SET smtp_out_server = 'votre.serveur.smtp:25' SCOPE=BOTH;
+Exemple d'envoi :
+BEGIN
+    UTL_MAIL.send(
+        sender     => 'expediteur@domaine.com',
+        recipients => 'destinataire@domaine.com',
+        subject    => 'Sujet du mail',
+        message    => 'Contenu du message'
+    );
+END;
+/
+Pour les pièces jointes :
+BEGIN
+    UTL_MAIL.send_attach_varchar2(
+        sender      => 'expediteur@domaine.com',
+        recipients  => 'destinataire@domaine.com',
+        subject     => 'Mail avec pièce jointe',
+        message     => 'Voir pièce jointe',
+        attachment  => 'Contenu du fichier',
+        att_filename => 'fichier.txt'
+    );
+END;
+/
+2. UTL_SMTP (plus de contrôle)
+Pour des besoins avancés :
+DECLARE
+    v_connection UTL_SMTP.connection;
+BEGIN
+    v_connection := UTL_SMTP.open_connection('votre.serveur.smtp', 25);
+    UTL_SMTP.helo(v_connection, 'votre.serveur.smtp');
+    UTL_SMTP.mail(v_connection, 'expediteur@domaine.com');
+    UTL_SMTP.rcpt(v_connection, 'destinataire@domaine.com');
+    UTL_SMTP.open_data(v_connection);
+    UTL_SMTP.write_data(v_connection, 'Subject: Test' || UTL_TCP.crlf);
+    UTL_SMTP.write_data(v_connection, 'Corps du message');
+    UTL_SMTP.close_data(v_connection);
+    UTL_SMTP.quit(v_connection);
+END;
+/
+3. Configuration des ACL (Oracle 12c+)
+Pour Oracle 19c, vous devez configurer les ACL (Access Control Lists) :
+-- En tant que SYSDBA
+BEGIN
+    DBMS_NETWORK_ACL_ADMIN.append_host_ace(
+        host       => 'votre.serveur.smtp',
+        ace        => xs$ace_type(
+            privilege_list => xs$name_list('smtp'),
+            principal_name => 'VOTRE_USER',
+            principal_type => xs_acl.ptype_db
+        )
+    );
+END;
+/
+4. Vérifications nécessaires
+-- Vérifier la configuration SMTP
+SELECT name, value FROM v$parameter WHERE name = 'smtp_out_server';
+
+-- Vérifier les ACL
+SELECT host, lower_port, upper_port, acl 
+FROM dba_network_acls;
+Quelle méthode souhaitez-vous approfondir ? Avez-vous des contraintes particulières (authentification SMTP, SSL/TLS, etc.) ?
