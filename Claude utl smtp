@@ -64,3 +64,103 @@ SELECT name, value FROM v$parameter WHERE name = 'smtp_out_server';
 SELECT host, lower_port, upper_port, acl 
 FROM dba_network_acls;
 Quelle méthode souhaitez-vous approfondir ? Avez-vous des contraintes particulières (authentification SMTP, SSL/TLS, etc.) ?
+
+
+
+
+
+..............
+
+
+
+
+Pour utiliser le port 587 (SMTP avec STARTTLS), voici la configuration adaptée :
+1. Configuration du serveur SMTP
+-- En tant que SYSDBA
+ALTER SYSTEM SET smtp_out_server = 'votre.serveur.smtp:587' SCOPE=BOTH;
+2. Configuration des ACL pour le port 587
+-- En tant que SYSDBA
+BEGIN
+    DBMS_NETWORK_ACL_ADMIN.append_host_ace(
+        host       => 'votre.serveur.smtp',
+        lower_port => 587,
+        upper_port => 587,
+        ace        => xs$ace_type(
+            privilege_list => xs$name_list('smtp', 'connect'),
+            principal_name => 'VOTRE_USER',
+            principal_type => xs_acl.ptype_db
+        )
+    );
+END;
+/
+3. Utilisation avec UTL_SMTP et STARTTLS
+Le port 587 nécessite généralement STARTTLS. Voici un exemple complet :
+DECLARE
+    v_connection UTL_SMTP.connection;
+    v_reply      UTL_SMTP.reply;
+BEGIN
+    -- Connexion sur le port 587
+    v_connection := UTL_SMTP.open_connection(
+        host => 'votre.serveur.smtp',
+        port => 587
+    );
+    
+    -- EHLO au lieu de HELO pour supporter les extensions
+    UTL_SMTP.ehlo(v_connection, 'votre.domaine.com');
+    
+    -- Activer STARTTLS
+    UTL_SMTP.command(v_connection, 'STARTTLS');
+    
+    -- Nouvelle négociation après STARTTLS
+    UTL_SMTP.ehlo(v_connection, 'votre.domaine.com');
+    
+    -- Authentification si nécessaire
+    UTL_SMTP.command(v_connection, 'AUTH LOGIN');
+    UTL_SMTP.command(v_connection, UTL_RAW.cast_to_varchar2(
+        UTL_ENCODE.base64_encode(UTL_RAW.cast_to_raw('utilisateur'))));
+    UTL_SMTP.command(v_connection, UTL_RAW.cast_to_varchar2(
+        UTL_ENCODE.base64_encode(UTL_RAW.cast_to_raw('mot_de_passe'))));
+    
+    -- Envoi du mail
+    UTL_SMTP.mail(v_connection, 'expediteur@domaine.com');
+    UTL_SMTP.rcpt(v_connection, 'destinataire@domaine.com');
+    
+    UTL_SMTP.open_data(v_connection);
+    UTL_SMTP.write_data(v_connection, 'From: expediteur@domaine.com' || UTL_TCP.crlf);
+    UTL_SMTP.write_data(v_connection, 'To: destinataire@domaine.com' || UTL_TCP.crlf);
+    UTL_SMTP.write_data(v_connection, 'Subject: Test port 587' || UTL_TCP.crlf);
+    UTL_SMTP.write_data(v_connection, UTL_TCP.crlf);
+    UTL_SMTP.write_data(v_connection, 'Corps du message');
+    UTL_SMTP.close_data(v_connection);
+    
+    UTL_SMTP.quit(v_connection);
+    
+    DBMS_OUTPUT.put_line('Email envoyé avec succès');
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.put_line('Erreur: ' || SQLERRM);
+        UTL_SMTP.quit(v_connection);
+        RAISE;
+END;
+/
+4. Configuration du Wallet Oracle (pour SSL/TLS)
+Si votre serveur SMTP nécessite un certificat SSL :
+# Sur Linux, en tant qu'oracle
+mkdir -p $ORACLE_HOME/admin/wallet
+orapki wallet create -wallet $ORACLE_HOME/admin/wallet -auto_login
+Puis dans sqlnet.ora :
+WALLET_LOCATION = (SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=$ORACLE_HOME/admin/wallet)))
+SSL_CLIENT_AUTHENTICATION = FALSE
+5. Alternative avec UTL_MAIL (si configuré)
+Si UTL_MAIL est correctement configuré avec le port 587 :
+BEGIN
+    UTL_MAIL.send(
+        sender     => 'expediteur@domaine.com',
+        recipients => 'destinataire@domaine.com',
+        subject    => 'Test port 587',
+        message    => 'Message envoyé via port 587'
+    );
+END;
+/
+Note importante : Le support natif de STARTTLS dans UTL_SMTP peut être limité selon votre version d'Oracle 19c. Vous devrez peut-être utiliser des packages complémentaires ou créer une procédure PL/SQL personnalisée.
+Avez-vous besoin d'authentification SMTP ? Quel type de serveur mail utilisez-vous (Gmail, Office365, serveur interne) ?
