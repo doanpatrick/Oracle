@@ -1,0 +1,65 @@
+trouble shooting
+
+voici le code de ma procedure 
+
+
+Create or replace PROCEDURE EMAIL_SEND_TEST_3 is
+
+mailFROM       VARCHAR2(64) := 'patrick.doan@ext.oddo-bhf.com';
+mailTO         VARCHAR2(64) := 'patrick.doan@ext.oddo-bhf.com';
+mailSubject    VARCHAR2(64) := 'Nachricht von Oracle(Server=MIS)';
+msg            VARCHAR2(10000) := 'Hallo ,' || UTL_TCP.crlf || UTL_TCP.crlf || 'Test' || UTL_TCP.crlf;
+
+smtp_host  VARCHAR2(64) := 'smtps.oddo.fr';
+mail_conn  UTL_SMTP.connection;
+
+BEGIN
+
+  mail_conn := utl_smtp.open_connection(
+      host => 'smtps.oddo.fr',
+      port => 587,
+      wallet_path => '/opt/oracle/product/admin/XORTM101/wallet_smtps',
+      wallet_password => 'QFtTSFG7F4KPmTI2',
+      secure_connection_before_smtp => FALSE);
+
+--  UTL_SMTP.STARTTLS(mail_conn);
+  UTL_SMTP.AUTH(
+      c => mail_conn,
+      username => 'perfrisk',
+      password => 'geh125_edfgt',
+      schemes  => utl_smtp.all_schemes);
+            
+  UTL_SMTP.STARTTLS(mail_conn);
+  UTL_SMTP.helo(mail_conn, smtp_host);
+  UTL_SMTP.mail(mail_conn, mailFROM);
+  UTL_SMTP.rcpt(mail_conn, mailTO);
+  UTL_SMTP.open_data(mail_conn);
+  UTL_SMTP.write_data(mail_conn, 'Date: ' || TO_CHAR(SYSDATE, 'DD-MM-YYYY HH24:MI:SS') || UTL_TCP.crlf);
+  UTL_SMTP.write_data(mail_conn, 'To: ' || mailTO || UTL_TCP.crlf);
+  UTL_SMTP.write_data(mail_conn, 'From: ' || mailFROM || UTL_TCP.crlf);
+  UTL_SMTP.write_data(mail_conn, 'Subject: ' || mailSubject || UTL_TCP.crlf);
+  UTL_SMTP.write_data(mail_conn, 'Reply-To: ' || mailFROM || UTL_TCP.crlf || UTL_TCP.crlf);
+  UTL_SMTP.write_data(mail_conn, msg || UTL_TCP.crlf || UTL_TCP.crlf);
+  UTL_SMTP.close_data(mail_conn);
+  UTL_SMTP.quit(mail_conn);
+END;
+
+et lorsque je l'éxécute je recois cette erreur
+
+Connexion à la base de données XORTM101.
+ORA-29278: erreur non persistante SMTP : 421 Service not available
+ORA-06512: à "SYS.UTL_SMTP", ligne 57
+ORA-06512: à "SYS.UTL_SMTP", ligne 140
+ORA-06512: à "SYS.UTL_SMTP", ligne 446
+ORA-06512: à "PERFRISK.EMAIL_SEND_TEST_3", ligne 21
+ORA-06512: à ligne 2
+Processus terminé.
+Déconnexion de la base de données XORTM101.
+
+
+
+
+c'est du a quoi ? le login perfrisk et le mot de passe fonctionne
+
+
+
