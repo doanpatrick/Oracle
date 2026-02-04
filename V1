@@ -1,3 +1,25 @@
+apré modification de la procédure 
+
+je recois ce message d'erreur
+
+Connexion à la base de données XORTM101.
+ORA-29248: un WRL non reconnu a été utilisé pour ouvrir un portefeuille
+ORA-06512: à "PERFRISK.EMAIL_SEND_TEST_4", ligne 56
+ORA-06512: à "SYS.UTL_TCP", ligne 63
+ORA-06512: à "SYS.UTL_TCP", ligne 314
+ORA-06512: à "SYS.UTL_SMTP", ligne 290
+ORA-06512: à "SYS.UTL_SMTP", ligne 296
+ORA-06512: à "PERFRISK.EMAIL_SEND_TEST_4", ligne 22
+ORA-06512: à ligne 2
+Processus terminé.
+Déconnexion de la base de données XORTM101.
+
+
+
+
+
+
+
 CREATE OR REPLACE PROCEDURE email_send_test_3 IS
   mailFROM    VARCHAR2(64) := 'patrick.doan@ext.oddo-bhf.com';
   mailTO      VARCHAR2(64) := 'patrick.doan@ext.oddo-bhf.com';
