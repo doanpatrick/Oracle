@@ -1,3 +1,18 @@
+maintenant je recois cette erreur:
+
+Connexion à la base de données XORTM101.
+ORA-29279: erreur permanente SMTP : 503 5.5.1 Error: authentication not enabled
+ORA-06512: à "PERFRISK.EMAIL_SEND_TEST_4", ligne 56
+ORA-06512: à "SYS.UTL_SMTP", ligne 57
+ORA-06512: à "SYS.UTL_SMTP", ligne 142
+ORA-06512: à "SYS.UTL_SMTP", ligne 446
+ORA-06512: à "PERFRISK.EMAIL_SEND_TEST_4", ligne 28
+ORA-06512: à ligne 2
+Processus terminé.
+Déconnexion de la base de données XORTM101.
+
+
+
 apré modification de la procédure 
 
 je recois ce message d'erreur
