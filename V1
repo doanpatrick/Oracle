@@ -1,3 +1,66 @@
+
+sans authentification
+
+CREATE OR REPLACE PROCEDURE email_send_test_noauth IS
+  mailFROM    VARCHAR2(128) := 'patrick.doan@ext.oddo-bhf.com';
+  mailTO      VARCHAR2(128) := 'patrick.doan@ext.oddo-bhf.com';
+  mailSubject VARCHAR2(256) := 'Nachricht von Oracle(Server=MIS)';
+  msg         VARCHAR2(10000) :=
+      'Hallo ,' || utl_tcp.crlf || utl_tcp.crlf || 'Test' || utl_tcp.crlf;
+
+  smtp_host VARCHAR2(64) := 'smtps.oddo.fr';
+  mail_conn UTL_SMTP.connection;
+BEGIN
+  mail_conn := utl_smtp.open_connection(
+      host => smtp_host,
+      port => 587,
+      wallet_path => 'file:/opt/oracle/product/admin/XORTM101/wallet_smtps',
+      wallet_password => '********',
+      secure_connection_before_smtp => FALSE);
+
+  -- 1) EHLO
+  utl_smtp.ehlo(mail_conn, smtp_host);
+
+  -- 2) STARTTLS (si le serveur l’accepte)
+  utl_smtp.starttls(mail_conn);
+
+  -- 3) EHLO après TLS
+  utl_smtp.ehlo(mail_conn, smtp_host);
+
+  -- 4) PAS D'AUTH ici
+
+  -- 5) Envoi
+  utl_smtp.mail(mail_conn, mailFROM);
+  utl_smtp.rcpt(mail_conn, mailTO);
+
+  utl_smtp.open_data(mail_conn);
+  utl_smtp.write_data(mail_conn, 'Date: ' || TO_CHAR(SYSDATE, 'DD-MM-YYYY HH24:MI:SS') || utl_tcp.crlf);
+  utl_smtp.write_data(mail_conn, 'To: ' || mailTO || utl_tcp.crlf);
+  utl_smtp.write_data(mail_conn, 'From: ' || mailFROM || utl_tcp.crlf);
+  utl_smtp.write_data(mail_conn, 'Subject: ' || mailSubject || utl_tcp.crlf);
+  utl_smtp.write_data(mail_conn, utl_tcp.crlf);
+  utl_smtp.write_data(mail_conn, msg || utl_tcp.crlf);
+
+  utl_smtp.close_data(mail_conn);
+  utl_smtp.quit(mail_conn);
+
+EXCEPTION
+  WHEN OTHERS THEN
+    BEGIN
+      utl_smtp.quit(mail_conn);
+    EXCEPTION
+      WHEN OTHERS THEN NULL;
+    END;
+    RAISE;
+END;
+/
+
+
+
+
+
+
+
 maintenant je recois cette erreur:
 
 Connexion à la base de données XORTM101.
