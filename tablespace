@@ -1,0 +1,43 @@
+SET LINES 200 PAGES 200
+COL tablespace_name FORMAT A20
+
+SELECT
+  df.tablespace_name,
+  ROUND(df.total_mb)    AS total_mb,
+  ROUND(NVL(fs.free_mb,0)) AS free_mb,
+  ROUND(df.total_mb - NVL(fs.free_mb,0)) AS used_mb,
+  ROUND( (df.total_mb - NVL(fs.free_mb,0)) / df.total_mb * 100, 2) AS pct_used
+FROM
+  (SELECT tablespace_name, SUM(bytes)/1024/1024 AS total_mb
+   FROM dba_data_files
+   GROUP BY tablespace_name) df
+LEFT JOIN
+  (SELECT tablespace_name, SUM(bytes)/1024/1024 AS free_mb
+   FROM dba_free_space
+   GROUP BY tablespace_name) fs
+ON df.tablespace_name = fs.tablespace_name
+ORDER BY pct_used DESC;
+
+
+
+
+SET LINES 250
+COL file_name FORMAT A90
+COL tablespace_name FORMAT A20
+
+SELECT
+  tablespace_name,
+  file_id,
+  file_name,
+  ROUND(bytes/1024/1024) AS size_mb,
+  autoextensible,
+  ROUND(maxbytes/1024/1024) AS max_mb,
+  ROUND(increment_by * (SELECT value FROM v$parameter WHERE name='db_block_size') /1024/1024) AS next_extend_mb
+FROM dba_data_files
+ORDER BY tablespace_name, file_id;
+
+
+ALTER DATABASE DATAFILE '/u01/oradata/DB/users01.dbf' RESIZE 20G;
+
+ALTER DATABASE DATAFILE '/u01/oradata/DB/users01.dbf'
+  AUTOEXTEND ON NEXT 1024M MAXSIZE 50G;
