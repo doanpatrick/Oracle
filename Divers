@@ -1,3 +1,70 @@
+ACL
+
+-- Paramètres
+-- host : SMTP_HOST
+-- port : 587
+-- user : APPUSER
+
+-- (Optionnel) voir les ACL existantes
+SELECT acl, host, lower_port, upper_port
+FROM dba_network_acls
+ORDER BY host;
+
+SELECT acl, principal, privilege, is_grant
+FROM dba_network_acl_privileges
+ORDER BY acl, principal;
+
+-- 1) Créer l'ACL
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.CREATE_ACL(
+    acl         => 'acl_smtp_587.xml',
+    description => 'ACL SMTP port 587',
+    principal   => 'APPUSER',
+    is_grant    => TRUE,
+    privilege   => 'connect'
+  );
+END;
+/
+
+-- 2) Autoriser la résolution DNS (recommandé)
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.ADD_PRIVILEGE(
+    acl       => 'acl_smtp_587.xml',
+    principal => 'APPUSER',
+    is_grant  => TRUE,
+    privilege => 'resolve'
+  );
+END;
+/
+
+-- 3) Assigner l'ACL au host + port 587
+BEGIN
+  DBMS_NETWORK_ACL_ADMIN.ASSIGN_ACL(
+    acl        => 'acl_smtp_587.xml',
+    host       => 'SMTP_HOST',
+    lower_port => 587,
+    upper_port => 587
+  );
+END;
+/
+
+COMMIT;
+
+-- 4) Vérification
+SELECT acl, host, lower_port, upper_port
+FROM dba_network_acls
+WHERE host = 'SMTP_HOST';
+
+SELECT acl, principal, privilege, is_grant
+FROM dba_network_acl_privileges
+WHERE acl LIKE '%acl_smtp_587.xml%';
+
+
+
+
+
+
+
 
 
 SELECT
