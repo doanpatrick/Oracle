@@ -1,0 +1,25 @@
+
+SQL> BEGIN
+  DBMS_NETWORK_ACL_ADMIN.CREATE_ACL(
+    acl         => 'smtps_acl_kpam_export.xml',
+    description => 'ACL SMTPS',
+    principal   => 'kpam_export',
+    is_grant    => TRUE,
+    privilege   => 'connect'
+  );
+END;
+/
+  2    3    4    5    6    7    8    9   10  BEGIN
+*
+ERROR at line 1:
+ORA-46238: Database user or role '"kpam_export"' does not exist
+ORA-06512: at "SYS.DBMS_NETWORK_ACL_ADMIN", line 560
+ORA-06512: at "SYS.XS_ACL", line 65
+ORA-06512: at "SYS.XS_ADMIN_UTIL", line 53
+ORA-06512: at "SYS.XS_ACL_INT", line 126
+ORA-01403: no data found
+ORA-06512: at "SYS.XS_ACL_INT", line 122
+ORA-06512: at "SYS.XS_ACL_INT", line 440
+ORA-06512: at "SYS.XS_ACL", line 55
+ORA-06512: at "SYS.DBMS_NETWORK_ACL_ADMIN", line 541
+ORA-06512: at line 2
